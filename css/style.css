@@ -1,0 +1,31 @@
+body {
+  padding-top: 70px;
+}
+
+.navbar a.btn {
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.glyphicon {
+  top: 2px;
+}
+
+.page-header > small {
+  padding-right: 10px;
+}
+
+.post-meta > .value {
+  margin-right: 12px;
+  margin-left: 6px;
+}
+
+.media > .media-body > .media-heading > .value {
+  margin-right: 7px;
+  margin-left: 3px;
+}
+
+.newReply {
+  margin-top: 15px;
+  margin-bottom: 33px;
+}

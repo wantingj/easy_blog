@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-tw">
+	<head>
+		<meta charset="utf-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Easy Blog</title>
+
+		<link href="css/bootstrap.min.css" rel="stylesheet">
+		<link href="css/style.css" rel="stylesheet">
+	</head>
+	<body>
+
+		<script src="js/lib/jquery.min.js"></script>
+		<script src="js/lib/bootstrap.min.js"></script>
+
+		<script src="js/lib/react.min.js"></script>
+    <script src="js/lib/JSXTransformer.js"></script>
+
+		<script src='js/lib/firebase.js'></script>
+		<script src="js/lib/reactfire.min.js"></script>
+
+		<script type="text/jsx">
+var urlFirebasePost = "https://blistering-torch-9921.firebaseio.com/post/";
+var catList = ["政治","趣味","國際","體育"];
+var txtAllCat = "全部";
+
+var Page = React.createClass({
+	mixins: [ReactFireMixin],
+	getInitialState: function(){
+		return {postList: []};
+	},
+	bindFirebase: function(cat){
+		var firebaseRef = new Firebase(urlFirebasePost);
+		if(-1 < cat && cat < catList.length ){			  		
+			this.bindAsObject(
+				firebaseRef.orderByChild("cat").equalTo(cat).limitToLast(this.props.postLimit), "postList");
+		}else{//all
+			this.bindAsObject(firebaseRef.limitToLast(this.props.postLimit), "postList");
+		}
+	},
+	handleCategoryChange: function(cat){
+		if(cat == this.props.nowCategory)
+			return;
+		this.props.nowCategory = cat;
+
+		this.unbind("postList");
+		this.bindFirebase(cat);
+	},
+	handlePostSubmit: function(post){
+		this.firebaseRefs["postList"].push(post);
+		if(post.cat != this.props.nowCategory){
+			this.handleCategoryChange(-1);
+		}
+	},
+	handleReplySubmit: function(postKey, reply){
+		this.firebaseRefs["postList"].child(postKey+"/reply").push(reply);
+	},
+	componentWillMount: function() {
+		this.bindFirebase(this.props.nowCategory);
+	},
+	render: function(){
+		var postList = [];
+		for(var key in this.state.postList){
+			postList.push(<OnePost key={key} postKey={key} post={this.state.postList[key]} onReplySubmit={this.handleReplySubmit} />);
+		}
+		if(postList.length==0){
+			postList = <p>沒有文章</p>;
+		}else if(postList.length>1){
+			postList.reverse();//desc order
+		}
+
+		return (
+			<div>
+				<PageNav onCategoryClick={this.handleCategoryChange} />
+				<div className="container">
+					<PageHeader cat={this.props.nowCategory} />
+					{postList}
+					<PostForm onPostSubmit={this.handlePostSubmit} />
+				</div>
+			</div>
+		)
+	}
+});
+
+var PageNav = React.createClass({
+	handleHomeLink: function(e){
+		e.preventDefault();
+		this.props.onCategoryClick(-1);
+	},
+	render: function(){
+		var categoryList = catList.map(function(txt,idx){
+			return (
+				<CategoryItem key={idx} txt={txt} cat={idx} onCategoryClick={this.props.onCategoryClick} />
+			);
+		}.bind(this));
+
+		return (
+			<nav className="navbar navbar-inverse navbar-fixed-top" role="navigation">
+				<div className="container">
+					<div className="navbar-header">
+						<button type="button" className="navbar-toggle" data-toggle="collapse" data-target="#navbar-collapse">
+							<span className="sr-only">Toggle navigation</span>
+							<span className="icon-bar"></span>
+							<span className="icon-bar"></span>
+							<span className="icon-bar"></span>
+						</button>
+						<a className="navbar-brand" href="#" onClick={this.handleHomeLink}>Easy Blog</a>
+					</div>
+					<div className="collapse navbar-collapse" id="navbar-collapse">
+						<ul className="nav navbar-nav">
+							{categoryList}
+						</ul>
+						<a className="btn btn-primary" href="#myModal" role="button" data-toggle="modal">發表新文章</a>
+					</div>
+				</div>
+			</nav>
+		);
+	}
+});
+
+var CategoryItem = React.createClass({
+	handleCategoryChange: function(e){
+		e.preventDefault();
+		this.props.onCategoryClick(this.props.cat);
+	},
+	render: function(){
+		return (
+			<li>
+				<a href="#" onClick={this.handleCategoryChange}>{this.props.txt}</a>
+			</li>
+		);
+	}
+});
+
+var PageHeader = React.createClass({
+	render: function(){
+		var txtCat = (this.props.cat in catList) ? catList[this.props.cat] : txtAllCat;
+		return (
+			<h1 className="page-header">
+				<small>分類</small>
+				<span>{txtCat}</span>
+			</h1>
+		);
+	}
+});
+
+var OnePost = React.createClass({
+	mixins: [ReactFireMixin],
+	getInitialState: function(){
+		return {replyList: []};
+	},
+	render: function(){
+		var replyList = [];
+		if(this.props.post.hasOwnProperty("reply")){
+			for(var key in this.props.post.reply){
+				replyList.push(<OneReply reply={this.props.post.reply[key]} key={key} />);
+			}
+		}
+
+		return (
+			<div className="onePost">
+				<h3>{this.props.post.title}</h3>
+				<h5 className="post-meta">
+					<span className="glyphicon glyphicon-user"></span>
+					<span className="value user-name">{this.props.post.user}</span>
+					<span className="glyphicon glyphicon-time"></span>
+					<span className="value time">{this.props.post.time}</span>
+					<span className="glyphicon glyphicon-folder-open"></span>
+					<span className="value tag">{catList[this.props.post.cat]}</span>    
+				</h5>
+				<hr />
+				<p>{this.props.post.content}</p>
+				<hr />
+				{replyList}
+				<ReplyForm postKey={this.props.postKey} onReplySubmit={this.props.onReplySubmit} />
+			</div>
+		);
+	}
+});
+
+var PostForm = React.createClass({
+	handleSubmit: function(e){
+		var post = {
+			"user": this.refs.user.getDOMNode().value,
+			"time": new Date().toLocaleString(),
+			"title": this.refs.title.getDOMNode().value,
+			"cat": parseInt(this.refs.cat.getDOMNode().value),
+			"content": this.refs.content.getDOMNode().value
+		};
+		this.props.onPostSubmit(post);
+
+		this.refs.user.getDOMNode().value = "";
+		this.refs.title.getDOMNode().value = "";
+		this.refs.cat.getDOMNode().value = "0";
+		this.refs.content.getDOMNode().value = "";
+
+		$(this.refs.postModal.getDOMNode()).modal('hide');
+	},
+	render: function(){
+		var selectOpts = catList.map(function(txt,idx){
+			return <option value={idx} key={idx}>{txt}</option>;
+		});
+		return (
+			<div id="myModal" className="modal fade" ref="postModal">
+				<div className="modal-dialog">
+					<div className="modal-content">
+						<div className="modal-header">
+							<button type="button" className="close" data-dismiss="modal" aria-hidden="true">×</button>
+							<h4 className="modal-title">發表新文章</h4>
+						</div>
+						<div className="modal-body">
+							<div className="row">
+								<div className="form-group col-md-6">
+									<label className="control-label">發表人:</label>
+									<input type="text" className="form-control" ref="user" />
+								</div>
+								<div className="form-group col-md-6">
+									<label lassName="control-label">類別:</label>
+									<select className="form-control" ref="cat">
+										{selectOpts}
+									</select>
+								</div>
+							</div>
+							<div className="form-group">
+								<label className="control-label">標題:</label>
+								<input type="text" className="form-control" ref="title" />
+							</div>
+							<div className="form-group">
+								<label className="control-label">內容:</label>
+								<textarea className="form-control" ref="content" rows="8"></textarea>
+							</div>
+						</div>
+						<div className="modal-footer">
+							<button type="button" className="btn btn-default" data-dismiss="modal">取消</button>
+							<button type="button" className="btn btn-primary" onClick={this.handleSubmit}>送出</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		)
+	}
+});
+
+var OneReply = React.createClass({
+	render: function(){
+		return (
+			<div className="oneReply media">
+				<div className="media-left"></div>
+				<div className="media-body">
+				<h6 className="media-heading">
+					<span className="glyphicon glyphicon-user"></span>
+					<span className="value user-name">{this.props.reply.user}</span>
+					<span className="glyphicon glyphicon-time"></span>
+					<span className="value time">{this.props.reply.time}</span>
+				</h6>
+				<span>{this.props.reply.msg}</span>
+				</div>
+			</div>
+		)
+	}
+});
+
+var ReplyForm = React.createClass({
+	handleSubmit: function(e){
+		var reply = {
+			"user": this.refs.user.getDOMNode().value,
+			"time": new Date().toLocaleString(),
+			"msg": this.refs.msg.getDOMNode().value
+		};
+		this.props.onReplySubmit(this.props.postKey, reply);
+
+		this.refs.user.getDOMNode().value = "";
+		this.refs.msg.getDOMNode().value = "";
+	},
+	render: function(){
+		return (
+			<div className="row newReply">
+				<div className="col-sm-2">
+					<input type="text" className="form-control" placeholder="暱稱" ref="user" />
+				</div>
+				<div className="col-sm-10">
+					<div className="input-group">					
+						<input type="text" className="form-control" placeholder="發表回應..." ref="msg" />
+						<span className="input-group-btn">
+							<button className="btn btn-primary" type="button" onClick={this.handleSubmit}>
+								<span className="glyphicon glyphicon-pencil"></span>
+							</button>
+						</span>
+					</div>
+				</div>
+			</div>
+		);
+	}
+});
+
+React.render(
+	<Page postLimit={10} nowCategory={-1}/>,
+	document.body
+);
+		</script>
+	</body>
+</html>
