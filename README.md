@@ -11,4 +11,4 @@ Easy-Blog 具有簡易貼文、文章短回覆功能。提供四種文章類別(
 
 [github repo](https://github.com/wantingj/easy_blog) |
 [github pages](http://wantingj.github.io/easy_blog/) |
-[投影片]
+[投影片](http://www.slideshare.net/wantingj/javascript-template-react-js)
